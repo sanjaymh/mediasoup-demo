@@ -4,6 +4,7 @@ const throttle = require('@sitespeed.io/throttle');
 const Logger = require('./Logger');
 const config = require('../config');
 const Bot = require('./Bot');
+const generateRtpStream = require('./rtpInRtpOut');
 
 const logger = new Logger('Room');
 
@@ -908,8 +909,13 @@ class Room extends EventEmitter
 						displayName : joinedPeer.data.displayName,
 						device      : joinedPeer.data.device
 					}));
-
+                
+				peerInfos.push({ id: 'ffmpeg', displayName: 'ffmpeg', device: { name: 'chrome',  } })
 				accept({ peers: peerInfos });
+
+				const videoProducer = await generateRtpStream(this._mediasoupRouter);
+
+				this._createConsumer({ consumerPeer: peer, producer: videoProducer });
 
 				// Mark the new Peer as joined.
 				peer.data.joined = true;
@@ -1736,7 +1742,7 @@ class Room extends EventEmitter
 						await consumerPeer.request(
 							'newConsumer',
 							{
-								peerId         : producerPeer.id,
+								peerId         : producerPeer?.id || 'ffmpeg',
 								producerId     : producer.id,
 								id             : consumer.id,
 								kind           : consumer.kind,
