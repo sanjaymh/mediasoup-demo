@@ -1055,6 +1055,15 @@ class Room extends EventEmitter
 					}
 				});
 
+				// #POC S
+				const initiateGetStats = (() => {
+					setInterval(async() => {
+						const stats = await transport.getStats();
+						console.log('stats of WEBRTC video transport ***************', stats);
+					}, 5000)
+				})();
+				// #POC E
+
 				// Store the WebRtcTransport into the protoo Peer data Object.
 				peer.data.transports.set(transport.id, transport);
 
