@@ -4,7 +4,7 @@ const throttle = require('@sitespeed.io/throttle');
 const Logger = require('./Logger');
 const config = require('../config');
 const Bot = require('./Bot');
-const generateRtpStream = require('./rtpInRtpOut');
+const { createVideoTransport, produceRtpStream } = require('./rtpInRtpOut');
 
 const logger = new Logger('Room');
 
@@ -52,7 +52,7 @@ class Room extends EventEmitter
 
 		const bot = await Bot.create({ mediasoupRouter });
 
-		return new Room(
+		const room = new Room(
 			{
 				roomId,
 				protooRoom,
@@ -63,6 +63,10 @@ class Room extends EventEmitter
 				consumerReplicas,
 				bot
 			});
+			// #POC S
+			room.init(mediasoupRouter);
+			// #POC E
+		return room;
 	}
 
 	constructor(
@@ -74,9 +78,10 @@ class Room extends EventEmitter
 			audioLevelObserver,
 			activeSpeakerObserver,
 			consumerReplicas,
-			bot
+			bot,
 		})
 	{
+
 		super();
 
 		this.setMaxListeners(Infinity);
@@ -146,6 +151,16 @@ class Room extends EventEmitter
 		global.activeSpeakerObserver = this._activeSpeakerObserver;
 		global.bot = this._bot;
 	}
+
+	// #POC S
+	// create video transport
+	async init(mediasoupRouter){
+		const {videoTransport, videoRtpPort, videoRtcpPort} = await createVideoTransport(mediasoupRouter);
+		this.videoTransport = videoTransport;
+		this.videoRtpPort = videoRtpPort;
+		this.videoRtcpPort = videoRtcpPort;
+	};
+	// #POC E
 
 	/**
 	 * Closes the Room instance by closing the protoo Room and the mediasoup Router.
@@ -909,13 +924,15 @@ class Room extends EventEmitter
 						displayName : joinedPeer.data.displayName,
 						device      : joinedPeer.data.device
 					}));
-                
-				peerInfos.push({ id: 'ffmpeg', displayName: 'ffmpeg', device: { name: 'chrome',  } })
+                // #POC S
+				peerInfos.push({ id: 'ffmpeg', displayName: 'ffmpeg', device: { name: 'chrome',  } });
+				// #POC E
 				accept({ peers: peerInfos });
 
-				const videoProducer = await generateRtpStream(this._mediasoupRouter);
-
-				this._createConsumer({ consumerPeer: peer, producer: videoProducer });
+                // #POC S
+				const videoProducer = await produceRtpStream();
+                this._createConsumer({ consumerPeer: peer, producer: videoProducer });
+				// #POC E
 
 				// Mark the new Peer as joined.
 				peer.data.joined = true;

@@ -1,8 +1,22 @@
 const childProcess = require('child_process');
 
-const generateRtpStream = async (router) => 
+let videoTransport;
+let videoRtpPort;
+let videoRtcpPort;
+
+const initiateGetStats = async(interval) => 
 {
-	const videoTransport = await router.createPlainTransport(
+	setInterval(async () => 
+	{
+		const stats = await videoTransport.getStats();
+
+		console.log('stats of video transport ***************', stats);
+	}, interval);
+};
+
+const createVideoTransport = async (router) => 
+{
+	videoTransport = await router.createPlainTransport(
 		{ 
 			listenIp : '127.0.0.1',
 			rtcpMux  : false,
@@ -10,12 +24,25 @@ const generateRtpStream = async (router) =>
 		});
       
 	// Read the transport local RTP port.
-	const videoRtpPort = videoTransport.tuple.localPort;
-      
+	videoRtpPort = videoTransport.tuple.localPort;  
 	// Read the transport local RTCP port.
-	const videoRtcpPort = videoTransport.rtcpTuple.localPort;
+	videoRtcpPort = videoTransport.rtcpTuple.localPort;
 
 	console.log(`videoRtpPort: ${videoRtpPort}, videoRtcpPort: ${videoRtcpPort}`);
+
+	await videoTransport.enableTraceEvent([ 'probation' ]);
+
+	videoTransport.on('trace', (trace) =>
+	{
+		console.log('tracing video transport#################', trace);
+	});
+	initiateGetStats(5000);
+	
+	return { videoTransport, videoRtpPort, videoRtcpPort };
+};
+
+const produceRtpStream = async () => 
+{
 
 	const videoProducer = await videoTransport.produce(
 		{
@@ -42,42 +69,42 @@ const generateRtpStream = async (router) =>
           }
 		});
 
-	const cp = childProcess.spawn(
-		'ffmpeg',
-		[
-			'-re',
-			'-v', 'info',
-			'-stream_loop', '-1',
-			'-i', 'D:/Projects/my_projects/mediasoup_examples/mediasoup-demo/server/recs/rec_3.mp4',
-			'-map', '0:v:0',
-			'-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-b:v', '1000k', '-deadline', 'realtime', '-cpu-used', '4',
-			'-f', 'tee',
-			`[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://127.0.0.1:${videoRtpPort}?rtcpport=${videoRtcpPort}`
-		]
-	);
+	// const cp = childProcess.spawn(
+	// 	'ffmpeg',
+	// 	[
+	// 		'-re',
+	// 		'-v', 'info',
+	// 		'-stream_loop', '-1',
+	// 		'-i', 'D:/Projects/my_projects/mediasoup_examples/mediasoup-demo/server/recs/rec_3.mp4',
+	// 		'-map', '0:v:0',
+	// 		'-pix_fmt', 'yuv420p', '-c:v', 'libx264', '-b:v', '1000k', '-deadline', 'realtime', '-cpu-used', '4',
+	// 		'-f', 'tee',
+	// 		`[select=v:f=rtp:ssrc=22222222:payload_type=102]rtp://127.0.0.1:${videoRtpPort}?rtcpport=${videoRtcpPort}`
+	// 	]
+	// );
 
-	cp.stdout.on('data', (data) => 
-	{
-		console.log(`stdout: ${data}`);
-	});
+	// cp.stdout.on('data', (data) => 
+	// {
+	// 	console.log(`stdout: ${data}`);
+	// });
 
-	cp.stderr.on('data', (data) => 
-	{
-		console.log(`stderr: ${data}`);
-	});
+	// cp.stderr.on('data', (data) => 
+	// {
+	// 	console.log(`stderr: ${data}`);
+	// });
 
-	cp.on('error', (error) => 
-	{
-		console.log(`error: ${error.message}`);
-	});
+	// cp.on('error', (error) => 
+	// {
+	// 	console.log(`error: ${error.message}`);
+	// });
 
-	cp.on('close', (code) => 
-	{
-		console.log(`child process exited with code ${code}`);
-	});
+	// cp.on('close', (code) => 
+	// {
+	// 	console.log(`child process exited with code ${code}`);
+	// });
 	
 	return videoProducer;
 
 };
 
-module.exports = generateRtpStream;
+module.exports = { produceRtpStream, createVideoTransport };
