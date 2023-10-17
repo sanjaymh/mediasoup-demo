@@ -1009,10 +1009,11 @@ class Room extends EventEmitter
 					appData        : { producing, consuming }
 				};
 
-				if (forceTcp)
+				if (true) // #POC  it was `if(forceTcp) {}`
 				{
-					webRtcTransportOptions.enableUdp = false;
-					webRtcTransportOptions.enableTcp = true;
+					// #POC enableUdp not required to consume RTP
+					// webRtcTransportOptions.enableUdp = true;
+					webRtcTransportOptions.enableTcp = true; // #POC E -> required		
 				}
 
 				const transport = await this._mediasoupRouter.createWebRtcTransport(
